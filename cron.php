@@ -10,7 +10,7 @@ $thread_name = "t3_";	//Thread to update, prefaced by "t3_". Eventually this wil
 
 //Setting up the database because I didn't document that shit
 //$conn = new PDO('mysql:host=SOME_HOST;dbname=SOME_DATABASE', 'SOME_USER', 'SOME_PASSWORD');
-require_once("./database_connection.php")
+require_once("./database_connection.php");
 
 /****************************
 Set up database queries
