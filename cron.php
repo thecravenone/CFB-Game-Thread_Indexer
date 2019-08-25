@@ -64,7 +64,7 @@ $postgame_array = array();
 
 foreach ($POSTGAME_THREADS as $thread) {
 	$to_insert = preg_replace("/t3_/", "", $thread['postgame']);
-	$game_array[] = $to_insert;
+	$postgame_array[] = $to_insert;
 }
 
 //Scrape /r/CFB/new
