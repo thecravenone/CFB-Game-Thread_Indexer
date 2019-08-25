@@ -36,7 +36,7 @@ $GET_GAME_THREADS=$conn->prepare("SELECT `game` FROM `threads` WHERE `week` = :w
 $game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`, `week`)
 					VALUES (:game, :time, :visitor, :home, :week)");
 //Locates games that are alreadya ssigned a postgame thread
-$GET_POSTGAME_THREADS=$conn->prepare("SELECT `postgame` from `threads` WHERE `week` = :week");
+$GET_POSTGAME_THREADS=$conn->prepare("SELECT `postgame` from `threads` WHERE `week` = :week AND `postgame` IS NOT NULL");
 //Locates a game in the database by team names
 $FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2 AND `week` = :week)
 					OR (`visitor` = :team2 AND `home` = :team1 AND `week` = :week)");
@@ -61,6 +61,7 @@ $GET_POSTGAME_THREADS->bindParam(':week', $week);
 $GET_POSTGAME_THREADS->execute();
 $POSTGAME_THREADS = $GET_POSTGAME_THREADS->fetchAll();
 $postgame_array = array();
+
 
 foreach ($POSTGAME_THREADS as $thread) {
 	$to_insert = preg_replace("/t3_/", "", $thread['postgame']);
