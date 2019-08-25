@@ -1,5 +1,7 @@
 <?php
 
+log_it("GTI run begining.");
+
 $timerstart = microtime(true);		//Used for tracking generation time
 require_once("phapper/src/phapper.php");	//Reddit API wrapper
 $r = new Phapper();					//Reddit API wrapper
@@ -59,6 +61,7 @@ $GET_POSTGAME_THREADS->bindParam(':week', $week);
 $GET_POSTGAME_THREADS->execute();
 $POSTGAME_THREADS = $GET_POSTGAME_THREADS->fetchAll();
 $postgame_array = array();
+
 foreach ($POSTGAME_THREADS as $thread) {
 	$to_insert = preg_replace("/t3_/", "", $thread['postgame']);
 	$game_array[] = $to_insert;
@@ -90,6 +93,7 @@ foreach ($posts as $thread) {
 				$game_create->bindParam(':visitor', $parsed_title->team1);
 				$game_create->bindParam(':home', $parsed_title->team2);
 				$game_create->bindParam(':week', $week);
+				log_it("Added game thread https://redd.it/" . $id);
 				$game_create->execute();
 			}
 		}
@@ -109,6 +113,7 @@ foreach ($posts as $thread) {
 				$postgame_update->bindParam(':postgame', $id);
 				$postgame_update->bindParam(':game', $game);
 				$postgame_update->execute();
+				log_it("Added postgame thread https://redd.it/" . $id);
 
 
 			}
@@ -118,7 +123,7 @@ foreach ($posts as $thread) {
 
 //Preparing output
 //Load all threads and info from DB into array
-$GET_ALL_THREADS->bindParam(':week', $week)
+$GET_ALL_THREADS->bindParam(':week', $week);
 $GET_ALL_THREADS->execute();
 $all_threads = $GET_ALL_THREADS->fetchAll();
 
@@ -158,6 +163,7 @@ $output = $output .  "Last updated: " . date('h:i:s T') . "\n\n";
 //echo $output;	//DEBUG
 
 $r->editText($thread_name, $output);
+log_it("GIT run completed.");
 
 /****************************
 Parsing for thread titles
@@ -216,4 +222,9 @@ function parse_thread ($thread_string){
 		$obj_to_return->is_postgame = false;
 		return $obj_to_return;
 	}
+}
+
+function log_it ($input){
+	$now = date('Y-m-d G:i:s.v');
+	echo $now . " " . $input . "\n";
 }
