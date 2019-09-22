@@ -2,26 +2,34 @@
 
 **Indexer for Game Threads and Postgame Threads on /r/CFB**
 
-This code will be deprecated for the upcoming 2019 season for a variety of reasons. It's being posted now for posterity.
-
 ## How to use
 
 ### Setup
 
 1. Add [Phapper](https://github.com/khicks/Phapper) to the directory at `./phapper`
 2. Create a MySQL database as described in `dump.sql`
+3. Update the DB to reflect the current week: `UPDATE config SET value = 'WEEK_NUMBER' WHERE setting = 'week';`
 3. Configure your database access info in `database_connection.php` (there's a sample at `database_connection-SAMPLE.php`)
+4. Configure Reddit/database access in `handler.py` (Yes, I know this should not be hardcoded to the file)
+5. Configure the following crons. Don't forget to `>>` to a log file if you want logs!
 
-### Weekly execution 
+```
+# At 0400, increment what week of football it is
+0 4 * * TUE python3 /path/to/handler.py --incrementweek
 
-1. Manually create the blank thread.
-2. Add the thread's ID (from the URL) to the `$thread_name` variable (currently on line 8). Note that thread IDs are preceded with `t3_`
-3. Immediately run `cron.php` to force-update the thread.
-4. Configure cron to run `cron.php` every five minutes.
-5. Some time before next week's cames, remember to disable the cron.
-6. Some time before next week, remember to blank the database.
+# At 1100 on Saturday, post the new thread and immediately run the scrape/update script
+0 11 * * SAT python3 /path/to/handler.py --post && php /path/to/cron.php
 
-## How it works
+# Every 5 minutes, scrape threads and update the index thread
+*/5 * * * * php /path/to/cron.php
+```
+
+## What handler.py does
+
+* Increment the week in the database
+* Create the weekly thread
+
+## How cron.php works
 
 1. Load known game threads from the DB into an array
 2. Load known post-game threads from the DB into an array
@@ -34,10 +42,6 @@ This code will be deprecated for the upcoming 2019 season for a variety of reaso
 ## Things this script does not do
 
 * Create the database (see `dump.sql` for a sample database)
-* Handle different weeks - the database must be emptied or re-created for each week.
-* Post the thread itself
-
-I had planned on adding in that functionality but it's only a minute or two per week and therefore [ultimately not worth it](https://xkcd.com/1205/).
 
 ## Other Caveats
 

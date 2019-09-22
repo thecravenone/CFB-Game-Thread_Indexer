@@ -1,38 +1,53 @@
 <?php
 
+log_it("GTI run begining.");
+
 $timerstart = microtime(true);		//Used for tracking generation time
 require_once("phapper/src/phapper.php");	//Reddit API wrapper
 $r = new Phapper();					//Reddit API wrapper
 $now		= time();
 $num_threads = 100;	//Number of threads to scrape. API defaults to 25. Max is 100.
-$thread_name = "t3_";	//Thread to update, prefaced by "t3_". Eventually this will be auto populated but it's manual for now.
-
 
 //Setting up the database because I didn't document that shit
 //$conn = new PDO('mysql:host=SOME_HOST;dbname=SOME_DATABASE', 'SOME_USER', 'SOME_PASSWORD');
-require_once("./database_connection.php")
+require_once("database_connection.php");
+
+//Setup week
+$GET_WEEK=$conn->prepare("SELECT `VALUE` from `config` WHERE `setting` = 'week'");
+$GET_WEEK->execute();
+$week = $GET_WEEK->fetch()['0'];
+
+//Figure out which thread to post to
+$GET_WEEKLY_THREAD=$conn->prepare("SELECT `value` FROM `config` WHERE `setting` = :week");
+$week_thread = "week" . $week . "thread";
+$GET_WEEKLY_THREAD->bindParam(':week', $week_thread);
+$GET_WEEKLY_THREAD->execute();
+$thread = $GET_WEEKLY_THREAD->fetch()['0'];
+$thread_name = "t3_" . $thread;
+
 
 /****************************
 Set up database queries
 ****************************/
 
 //Get existing game threads
-$GET_GAME_THREADS=$conn->prepare("SELECT `game` from `threads`");
+$GET_GAME_THREADS=$conn->prepare("SELECT `game` FROM `threads` WHERE `week` = :week");
 //Adds a game to the database for the first time
-$game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`)
-					VALUES (:game, :time, :visitor, :home)");
+$game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`, `week`)
+					VALUES (:game, :time, :visitor, :home, :week)");
 //Locates games that are alreadya ssigned a postgame thread
-$GET_POSTGAME_THREADS=$conn->prepare("SELECT `postgame` from `threads`");
+$GET_POSTGAME_THREADS=$conn->prepare("SELECT `postgame` from `threads` WHERE `week` = :week AND `postgame` IS NOT NULL");
 //Locates a game in the database by team names
-$FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2)
-					OR (`visitor` = :team2 AND `home` = :team1)");
+$FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2 AND `week` = :week)
+					OR (`visitor` = :team2 AND `home` = :team1 AND `week` = :week)");
 //Adds a postgame thread to a game
 $postgame_update	=$conn->prepare("UPDATE threads SET `postgame` = :postgame WHERE `game` = :game");
 //Retreive all known information for output
-$GET_ALL_THREADS=$conn->prepare("SELECT `game`, `time`, `visitor`, `home`, `postgame` FROM `threads` ORDER BY `time` DESC");
+$GET_ALL_THREADS=$conn->prepare("SELECT `game`, `visitor`, `home`, `postgame` FROM `threads` WHERE `week` = :week ORDER BY `time` DESC");
 
 
 //Load existing threads into array
+$GET_GAME_THREADS->bindParam(':week', $week);
 $GET_GAME_THREADS->execute();
 $GAME_THREADS = $GET_GAME_THREADS->fetchAll();
 $game_array = array();
@@ -42,12 +57,15 @@ foreach ($GAME_THREADS as $thread) {
 }
 
 //Load postgame threads into array
+$GET_POSTGAME_THREADS->bindParam(':week', $week);
 $GET_POSTGAME_THREADS->execute();
 $POSTGAME_THREADS = $GET_POSTGAME_THREADS->fetchAll();
 $postgame_array = array();
+
+
 foreach ($POSTGAME_THREADS as $thread) {
 	$to_insert = preg_replace("/t3_/", "", $thread['postgame']);
-	$game_array[] = $to_insert;
+	$postgame_array[] = $to_insert;
 }
 
 //Scrape /r/CFB/new
@@ -69,12 +87,14 @@ foreach ($posts as $thread) {
 		if (!in_array($id, $game_array)) {
 			if ($created +300 <= $now) {
 				//INSERT INTO DATABASE
-				//$game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`)
-				//		VALUES (:game, :time, :visitor, :home)");
+				//$game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`, `week`)
+				//	VALUES (:game, :time, :visitor, :home, :week)");
 				$game_create->bindParam(':game', $id);
 				$game_create->bindParam(':time', $created);
 				$game_create->bindParam(':visitor', $parsed_title->team1);
 				$game_create->bindParam(':home', $parsed_title->team2);
+				$game_create->bindParam(':week', $week);
+				log_it("Added game thread https://redd.it/" . $id);
 				$game_create->execute();
 			}
 		}
@@ -82,10 +102,11 @@ foreach ($posts as $thread) {
 	} else if ($parsed_title->is_postgame) {
 		if (!in_array($id, $postgame_array)) {
 			if ($created +300 <= $now) {
-				//$FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2)
-					//OR (`visitor` = :team2 AND `home` = :team1)";
+				//$FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2 AND `week` = :week)
+				//	OR (`visitor` = :team2 AND `home` = :team1 AND `week` = :week)");
 				$FIND_GAME_THREAD->bindParam(':team1', $parsed_title->team1);
 				$FIND_GAME_THREAD->bindParam(':team2', $parsed_title->team2);
+				$FIND_GAME_THREAD->bindParam(':week', $week);
 				$FIND_GAME_THREAD->execute();
 				$game = $FIND_GAME_THREAD->fetch()['game'];
 
@@ -93,6 +114,7 @@ foreach ($posts as $thread) {
 				$postgame_update->bindParam(':postgame', $id);
 				$postgame_update->bindParam(':game', $game);
 				$postgame_update->execute();
+				log_it("Added postgame thread https://redd.it/" . $id);
 
 
 			}
@@ -102,6 +124,7 @@ foreach ($posts as $thread) {
 
 //Preparing output
 //Load all threads and info from DB into array
+$GET_ALL_THREADS->bindParam(':week', $week);
 $GET_ALL_THREADS->execute();
 $all_threads = $GET_ALL_THREADS->fetchAll();
 
@@ -141,6 +164,7 @@ $output = $output .  "Last updated: " . date('h:i:s T') . "\n\n";
 //echo $output;	//DEBUG
 
 $r->editText($thread_name, $output);
+log_it("GIT run completed.");
 
 /****************************
 Parsing for thread titles
@@ -199,4 +223,9 @@ function parse_thread ($thread_string){
 		$obj_to_return->is_postgame = false;
 		return $obj_to_return;
 	}
+}
+
+function log_it ($input){
+	$now = date('Y-m-d G:i:s.v');
+	echo $now . " " . $input . "\n";
 }
