@@ -2,8 +2,6 @@
 
 **Indexer for Game Threads and Postgame Threads on /r/CFB**
 
-This code will be deprecated for the upcoming 2019 season for a variety of reasons. It's being posted now for posterity.
-
 ## How to use
 
 ### Setup
@@ -12,7 +10,8 @@ This code will be deprecated for the upcoming 2019 season for a variety of reaso
 2. Create a MySQL database as described in `dump.sql`
 3. Update the DB to reflect the current week: `UPDATE config SET value = 'WEEK_NUMBER' WHERE setting = 'week';`
 3. Configure your database access info in `database_connection.php` (there's a sample at `database_connection-SAMPLE.php`)
-4. Configure the following crons. Don't forget to `>>` to a log file if you want logs!
+4. Configure Reddit/database access in `handler.py` (Yes, I know this should not be hardcoded to the file)
+5. Configure the following crons. Don't forget to `>>` to a log file if you want logs!
 
 ```
 # At 0400, increment what week of football it is
@@ -24,6 +23,11 @@ This code will be deprecated for the upcoming 2019 season for a variety of reaso
 # Every 5 minutes, scrape threads and update the index thread
 */5 * * * * php /path/to/cron.php
 ```
+
+## What handler.py does
+
+* Increment the week in the database
+* Create the weekly thread
 
 ## How cron.php works
 
