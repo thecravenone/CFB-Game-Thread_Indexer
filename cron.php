@@ -44,7 +44,10 @@ $FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor`
 $postgame_update	=$conn->prepare("UPDATE threads SET `postgame` = :postgame WHERE `game` = :game");
 //Retreive all known information for output
 $GET_ALL_THREADS=$conn->prepare("SELECT `game`, `visitor`, `home`, `postgame` FROM `threads` WHERE `week` = :week ORDER BY `time` DESC");
-
+// Interacting with the config table
+// This was created for the Non-FBS thread but I'm making it generic for other possible future uses
+$INSERT_CONFIG_VALUE=$conn->prepare("INSERT INTO config (`setting`, `value`) VALUES (:setting, :value)");
+$GET_CONFIG_VALUE	=$conn->prepare("SELECT `value` FROM `config` WHERE `setting` = :setting");
 
 //Load existing threads into array
 $GET_GAME_THREADS->bindParam(':week', $week);
@@ -119,7 +122,20 @@ foreach ($posts as $thread) {
 
 			}
 		}
-	} // else { It's not a thread we care about unless further functionality is added }
+	} else if ($parsed_title->other == "Non-FBS") {
+		$setting_name = "week" . $week . "NonFBS";
+		$GET_CONFIG_VALUE->bindParam(':setting', $setting_name);
+		$GET_CONFIG_VALUE->execute();
+
+		if($GET_CONFIG_VALUE->rowCount() == 0) {	// If the Non-FBS thread wasn't previously logged
+			$INSERT_CONFIG_VALUE=$conn->prepare("INSERT INTO config (`setting`, `value`) VALUES (:setting, :value)");
+			$INSERT_CONFIG_VALUE->bindParam(':setting', $setting_name);
+			$INSERT_CONFIG_VALUE->execute();
+			log_it("Added Non-FBS Thread: ". $id)
+		}
+		$NonFBS = $id;
+	}
+	// else { It's not a thread we care about unless further functionality is added }
 }
 
 //Preparing output
@@ -132,7 +148,11 @@ $all_threads = $GET_ALL_THREADS->fetchAll();
 
 //Create pre-table intro and table header
 $output = "Scroll to bottom for FAQ.\n\n";
-#$output = $output . "And don't forget our new [**Non-FBS Games** thread](/r/CFB/comments/9vvdcp/)!\n\n";
+
+if(isset($NonFBS)) {	// Only link the non-FBS thread if it exists
+	$output = $output . "Don't forget we have a weekly thread for Non-FBS Games! [[Click Here!]](/r/CFB/comments/" . $NonFBS . ")\n\n";
+}
+
 $output = $output . "|Visitor|Home|Game Thread|Postgame Thread|\n|-|-|-|-|\n";
 
 //Generate rows
@@ -172,6 +192,7 @@ Parsing for thread titles
 class parsed_thread {
 	public $is_gamethread;
 	public $is_postgame;
+	public $other;
 	public $team1;
 	public $team2;
 	public $time;		//TODO: Add time to DB and output
@@ -181,29 +202,36 @@ function parse_thread ($thread_string){
 	$obj_to_return = new parsed_thread();
 	
 	if (preg_match('/\[Game Thread\]/', $thread_string)) {	//If is game thread
-		$obj_to_return->is_gamethread = true;
-		$obj_to_return->is_postgame = false;
-
-		//Remove "[Game Thread] "
-		$thread_string = substr($thread_string, strpos ($thread_string, "] ") + 2);
-
-		//Pull team names, splitting at " @ " or " vs "
-		if (preg_match('/@/', $thread_string)) {	//Non-neutral game
-			$cut_at = strpos ($thread_string, " @ ");
-
-			$obj_to_return->team1 = substr($thread_string, 0, $cut_at);
-			$thread_string = substr($thread_string, $cut_at);
-			$obj_to_return->team2 = substr($thread_string, 3, strpos($thread_string, "(") -4);
-			$obj_to_return->time = substr($thread_string, strpos($thread_string, "(") +1, -1);
+		if (preg_match('/\[Game Thread\] \[Week [0-9]{1,2}\] Non-FBS Games/', $thread_string)) {	// Weekly Non-FBS Thread
+			$obj_to_return->is_gamethread = false;
+			$obj_to_return->is_postgame = false;
+			$obj_to_return->other = "Non-FBS";
 			return $obj_to_return;
-		} else if (preg_match('/vs\./', $thread_string)) {
-			$cut_at = strpos ($thread_string, " vs. ");
-			$obj_to_return->team1 = substr($thread_string, 0, $cut_at);
-			$thread_string = substr($thread_string, $cut_at);
-			$obj_to_return->team2 = substr($thread_string, 5, strpos($thread_string, "(") -5);
-			$obj_to_return->time = substr($thread_string, strpos($thread_string, "(") +1, -1);
-			return $obj_to_return;
-		}
+		} else {
+			$obj_to_return->is_gamethread = true;
+			$obj_to_return->is_postgame = false;
+
+			//Remove "[Game Thread] "
+			$thread_string = substr($thread_string, strpos ($thread_string, "] ") + 2);
+
+			//Pull team names, splitting at " @ " or " vs "
+			if (preg_match('/@/', $thread_string)) {	//Non-neutral game
+				$cut_at = strpos ($thread_string, " @ ");
+
+				$obj_to_return->team1 = substr($thread_string, 0, $cut_at);
+				$thread_string = substr($thread_string, $cut_at);
+				$obj_to_return->team2 = substr($thread_string, 3, strpos($thread_string, "(") -4);
+				$obj_to_return->time = substr($thread_string, strpos($thread_string, "(") +1, -1);
+				return $obj_to_return;
+			} else if (preg_match('/vs\./', $thread_string)) {
+				$cut_at = strpos ($thread_string, " vs. ");
+				$obj_to_return->team1 = substr($thread_string, 0, $cut_at);
+				$thread_string = substr($thread_string, $cut_at);
+				$obj_to_return->team2 = substr($thread_string, 5, strpos($thread_string, "(") -5);
+				$obj_to_return->time = substr($thread_string, strpos($thread_string, "(") +1, -1);
+				return $obj_to_return;
+			}
+		}	
 	} else if (preg_match('/\[Postgame Thread\]/', $thread_string)) {	//If is post-game thread
 		$obj_to_return->is_gamethread = false;
 		$obj_to_return->is_postgame = true;
