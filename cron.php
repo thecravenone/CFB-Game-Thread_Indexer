@@ -97,7 +97,8 @@ foreach ($posts as $thread) {
 				$game_create->bindParam(':visitor', $parsed_title->team1);
 				$game_create->bindParam(':home', $parsed_title->team2);
 				$game_create->bindParam(':week', $week);
-				log_it("Added game thread https://redd.it/" . $id);
+				// Underscores in titles so the number of columns remains the same
+				log_it("Added game thread " . preg_replace('/ ', "_", $title) . " " . $id);
 				$game_create->execute();
 			}
 		}
@@ -117,7 +118,8 @@ foreach ($posts as $thread) {
 				$postgame_update->bindParam(':postgame', $id);
 				$postgame_update->bindParam(':game', $game);
 				$postgame_update->execute();
-				log_it("Added postgame thread https://redd.it/" . $id);
+				// Underscores in titles so the number of columns remains the same
+				log_it("Added postgame thread " . preg_replace('/ ', "_", $title) . " " . $id);
 
 
 			}
@@ -131,7 +133,7 @@ foreach ($posts as $thread) {
 			$INSERT_CONFIG_VALUE=$conn->prepare("INSERT INTO config (`setting`, `value`) VALUES (:setting, :value)");
 			$INSERT_CONFIG_VALUE->bindParam(':setting', $setting_name);
 			$INSERT_CONFIG_VALUE->execute();
-			log_it("Added Non-FBS Thread: ". $id)
+			log_it("Added Non-FBS Thread: ". $id);
 		}
 		$NonFBS = $id;
 	}
