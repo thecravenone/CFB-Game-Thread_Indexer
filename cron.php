@@ -246,7 +246,7 @@ function parse_thread ($thread_string){
 
 		$obj_to_return->team1 = substr($thread_string, 0, $cut_at);
 		$thread_string = substr($thread_string, $cut_at +9);
-		$obj_to_return->team2 = preg_replace('/ [0-9]+-[0-9]+/', "", $thread_string);
+		$obj_to_return->team2 = preg_replace(' [0-9]+-[0-9]+( \([0-9]+OT\))?', "", $thread_string);
 		return $obj_to_return;
 	} else {
 		$obj_to_return->is_gamethread = false;
