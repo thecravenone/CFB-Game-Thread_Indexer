@@ -144,7 +144,7 @@ foreach ($posts as $thread) {
 //Load all threads and info from DB into array
 $GET_ALL_THREADS->bindParam(':week', $week);
 $GET_ALL_THREADS->execute();
-// 
+// Sorts array in alphabetical order based on visitor strings
 usort($GET_ALL_THREADS, fn($a,$b) => $a->vistor <=> $b->visitor);
 $all_threads = $GET_ALL_THREADS->fetchAll();
 
