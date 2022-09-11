@@ -35,7 +35,7 @@ $GET_GAME_THREADS=$conn->prepare("SELECT `game` FROM `threads` WHERE `week` = :w
 //Adds a game to the database for the first time
 $game_create		=$conn->prepare("INSERT INTO threads (`game`, `time`, `visitor`, `home`, `week`)
 					VALUES (:game, :time, :visitor, :home, :week)");
-//Locates games that are alreadya ssigned a postgame thread
+//Locates games that are already assigned a postgame thread
 $GET_POSTGAME_THREADS=$conn->prepare("SELECT `postgame` from `threads` WHERE `week` = :week AND `postgame` IS NOT NULL");
 //Locates a game in the database by team names
 $FIND_GAME_THREAD	=$conn->prepare("SELECT `game` from `threads` WHERE (`visitor` = :team1 AND `home` = :team2 AND `week` = :week)
@@ -144,6 +144,8 @@ foreach ($posts as $thread) {
 //Load all threads and info from DB into array
 $GET_ALL_THREADS->bindParam(':week', $week);
 $GET_ALL_THREADS->execute();
+// Sorts array in alphabetical order based on visitor strings
+usort($GET_ALL_THREADS, fn($a,$b) => $a->visitor <=> $b->visitor);
 $all_threads = $GET_ALL_THREADS->fetchAll();
 
 //print_r($all_threads); //DEBUG
@@ -200,6 +202,7 @@ class parsed_thread {
 	public $time;		//TODO: Add time to DB and output
 	//public $score;	//TODO
 }
+
 function parse_thread ($thread_string){
 	$obj_to_return = new parsed_thread();
 	
